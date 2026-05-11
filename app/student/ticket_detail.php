@@ -1,48 +1,55 @@
 <?php
-// ============================================================
-// student/ticket_detail.php — Phase 2 Frontend
-// Path: Project_CS381/app/student/ticket_detail.php
-// ============================================================
+session_start();
+require '../includes/db.php';
 
-$student_name     = "Hadeel Awad";
-$student_initials = "HA";
+// لو ما سجل دخول
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../login.php");
+    exit();
+}
 
-// Dummy ticket data — replaced with DB query in Phase 3
-$ticket = [
-  "id"          => 2,
-  "title"       => "Projector not working in Lab 3",
-  "category"    => "Hardware",
-  "priority"    => "High",
-  "location"    => "Lab 3, Building A",
-  "description" => "The projector in Lab 3 has not been working since Monday. When I press the power button, the light blinks orange but nothing shows on screen. We have a presentation tomorrow and really need this fixed.",
-  "status"      => "progress",
-  "date"        => "Apr 08, 2026",
-];
+// لو admin
+if ($_SESSION['user_role'] === 'admin') {
+    header("Location: ../admin/dashboard.php");
+    exit();
+}
 
-// Dummy response thread — replaced with DB query in Phase 3
-$responses = [
-  [
-    "sender"   => "Hadeel Awad",
-    "initials" => "HA",
-    "role"     => "student",
-    "message"  => "The projector in Lab 3 has not been working since Monday. Pressing power gives an orange blinking light but no display.",
-    "time"     => "Apr 08, 2026 — 10:14 AM",
-  ],
-  [
-    "sender"   => "Admin Support",
-    "initials" => "AS",
-    "role"     => "admin",
-    "message"  => "Thank you for reporting this. We have assigned a technician to look into it. Please expect a visit to Lab 3 by tomorrow morning.",
-    "time"     => "Apr 08, 2026 — 11:30 AM",
-  ],
-  [
-    "sender"   => "Hadeel Awad",
-    "initials" => "HA",
-    "role"     => "student",
-    "message"  => "Thank you! We have a presentation at 10 AM, so hopefully it will be fixed before then.",
-    "time"     => "Apr 08, 2026 — 11:45 AM",
-  ],
-];
+$student_name     = $_SESSION['user_name'];
+$student_initials = strtoupper(substr($student_name, 0, 1) . substr(strrchr($student_name, " "), 1, 1));
+
+// جلب التذكرة — تأكد إنها تبع هذا الطالب فقط
+$ticket_id = $_GET['id'] ?? 0;
+$stmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? AND user_id = ?");
+$stmt->execute([$ticket_id, $_SESSION['user_id']]);
+$ticket = $stmt->fetch();
+
+// لو التذكرة ما موجودة أو مو تبعه
+if (!$ticket) {
+    header("Location: dashboard.php");
+    exit();
+}
+
+// جلب الردود
+$stmt = $pdo->prepare("
+    SELECT responses.*, users.name as sender_name, users.role as sender_role
+    FROM responses
+    JOIN users ON responses.user_id = users.id
+    WHERE responses.ticket_id = ?
+    ORDER BY responses.created_at ASC
+");
+$stmt->execute([$ticket_id]);
+$responses = $stmt->fetchAll();
+
+// لو في رد جديد
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $message = trim($_POST['message']);
+    if ($message) {
+        $stmt = $pdo->prepare("INSERT INTO responses (ticket_id, user_id, message) VALUES (?, ?, ?)");
+        $stmt->execute([$ticket_id, $_SESSION['user_id'], $message]);
+        header("Location: ticket_detail.php?id=$ticket_id");
+        exit();
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -226,7 +233,7 @@ $responses = [
     <div class="page-header">
       <div>
         <h1 class="page-title">Ticket #<?php echo $ticket['id']; ?></h1>
-        <p class="page-subtitle">Submitted on <?php echo $ticket['date']; ?></p>
+        <p class="page-subtitle">Submitted on <?php echo $ticket['created_at']; ?></p>
       </div>
       <a href="dashboard.php">
         <button class="btn btn-ghost">
@@ -260,7 +267,7 @@ $responses = [
         </span>
         <span class="meta-pill">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <?php echo $ticket['date']; ?>
+          <?php echo $ticket['created_at']; ?>
         </span>
         <span class="meta-pill">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -282,15 +289,15 @@ $responses = [
       <div class="thread-body">
         <div class="thread">
           <?php foreach ($responses as $r): ?>
-          <div class="thread-msg <?php echo $r['role'] === 'admin' ? 'admin-msg' : ''; ?>">
-            <div class="thread-avatar <?php echo $r['role']; ?>">
-              <?php echo $r['initials']; ?>
-            </div>
-            <div class="thread-bubble">
-              <div class="thread-name"><?php echo $r['sender']; ?></div>
-              <div class="thread-text"><?php echo htmlspecialchars($r['message']); ?></div>
-              <div class="thread-time"><?php echo $r['time']; ?></div>
-            </div>
+          <div class="thread-msg <?php echo $r['sender_role'] === 'admin' ? 'admin-msg' : ''; ?>">
+              <div class="thread-avatar <?php echo $r['sender_role']; ?>">
+                  <?php echo strtoupper(substr($r['sender_name'], 0, 2)); ?>
+              </div>
+              <div class="thread-bubble">
+                  <div class="thread-name"><?php echo $r['sender_name']; ?></div>
+                  <div class="thread-text"><?php echo htmlspecialchars($r['message']); ?></div>
+                  <div class="thread-time"><?php echo $r['created_at']; ?></div>
+              </div>
           </div>
           <?php endforeach; ?>
         </div>
@@ -301,7 +308,7 @@ $responses = [
     <?php if ($ticket['status'] !== 'resolved'): ?>
     <div class="reply-box">
       <p class="reply-box-title">Add a reply</p>
-      <form action="../includes/tickets.php" method="POST" onsubmit="return validateReply()">
+      <form action="" method="POST"
         <input type="hidden" name="action"    value="reply"/>
         <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>"/>
         <div class="reply-row">

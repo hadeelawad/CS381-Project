@@ -1,49 +1,81 @@
 <?php
-// ============================================================
-// admin/assign_ticket.php — Phase 2 Frontend
-// Path: Project_CS381/app/admin/assign_ticket.php
-// ============================================================
+session_start();
+require '../includes/db.php';
 
-$admin_name     = "Admin Support";
-$admin_initials = "AS";
+// لو ما سجل دخول
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../login.php");
+    exit();
+}
 
-// Dummy ticket — replaced with DB query in Phase 3
-$ticket = [
-  "id"          => 2,
-  "title"       => "Projector not working in Lab 3",
-  "student"     => "Sara Mohammed",
-  "category"    => "Hardware",
-  "priority"    => "High",
-  "location"    => "Lab 3, Building A",
-  "description" => "The projector in Lab 3 has not been working since Monday. When I press the power button, the light blinks orange but nothing shows on screen.",
-  "status"      => "progress",
-  "date"        => "Apr 08, 2026",
-];
+// لو student
+if ($_SESSION['user_role'] !== 'admin') {
+    header("Location: ../student/dashboard.php");
+    exit();
+}
 
-// Dummy technicians list — replaced with DB query in Phase 3
-$technicians = [
-  ["id" => 1, "name" => "Khalid Al-Rashidi"],
-  ["id" => 2, "name" => "Omar Faisal"],
-  ["id" => 3, "name" => "Tariq Nasser"],
-];
+$admin_name     = $_SESSION['user_name'];
+$admin_initials = strtoupper(substr($admin_name, 0, 1) . substr(strrchr($admin_name, " "), 1, 1));
 
-// Dummy response thread
-$responses = [
-  [
-    "sender"   => "Sara Mohammed",
-    "initials" => "SM",
-    "role"     => "student",
-    "message"  => "The projector in Lab 3 has not been working since Monday. Pressing power gives an orange blinking light but no display.",
-    "time"     => "Apr 08, 2026 — 10:14 AM",
-  ],
-  [
-    "sender"   => "Admin Support",
-    "initials" => "AS",
-    "role"     => "admin",
-    "message"  => "Thank you for reporting this. We have assigned a technician to look into it.",
-    "time"     => "Apr 08, 2026 — 11:30 AM",
-  ],
-];
+// جلب التذكرة
+$ticket_id = $_GET['id'] ?? 0;
+$stmt = $pdo->prepare("
+    SELECT tickets.*, users.name as student_name
+    FROM tickets
+    JOIN users ON tickets.user_id = users.id
+    WHERE tickets.id = ?
+");
+$stmt->execute([$ticket_id]);
+$ticket = $stmt->fetch();
+
+if (!$ticket) {
+    header("Location: dashboard.php");
+    exit();
+}
+
+// جلب التقنيين
+$stmt = $pdo->query("SELECT id, name FROM users WHERE role = 'admin'");
+$technicians = $stmt->fetchAll();
+
+// جلب الردود
+$stmt = $pdo->prepare("
+    SELECT responses.*, users.name as sender_name, users.role as sender_role
+    FROM responses
+    JOIN users ON responses.user_id = users.id
+    WHERE responses.ticket_id = ?
+    ORDER BY responses.created_at ASC
+");
+$stmt->execute([$ticket_id]);
+$responses = $stmt->fetchAll();
+
+// تعيين تقني
+if (isset($_POST['action']) && $_POST['action'] === 'assign') {
+    $tech_id = $_POST['technician_id'];
+    $stmt = $pdo->prepare("INSERT INTO assignments (ticket_id, technician_id) VALUES (?, ?)");
+    $stmt->execute([$ticket_id, $tech_id]);
+    header("Location: assign_ticket.php?id=$ticket_id");
+    exit();
+}
+
+// تحديث الحالة
+if (isset($_POST['action']) && $_POST['action'] === 'update_status') {
+    $status = $_POST['status'];
+    $stmt = $pdo->prepare("UPDATE tickets SET status = ? WHERE id = ?");
+    $stmt->execute([$status, $ticket_id]);
+    header("Location: assign_ticket.php?id=$ticket_id");
+    exit();
+}
+
+// رد الادمن
+if (isset($_POST['action']) && $_POST['action'] === 'reply') {
+    $message = trim($_POST['message']);
+    if ($message) {
+        $stmt = $pdo->prepare("INSERT INTO responses (ticket_id, user_id, message) VALUES (?, ?, ?)");
+        $stmt->execute([$ticket_id, $_SESSION['user_id'], $message]);
+        header("Location: assign_ticket.php?id=$ticket_id");
+        exit();
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -240,7 +272,7 @@ $responses = [
           <div class="ticket-meta">
             <span class="meta-pill">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <?php echo $ticket['student']; ?>
+              <?php echo $ticket['student_name']; ?>
             </span>
             <span class="meta-pill">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
@@ -263,12 +295,14 @@ $responses = [
           <div class="thread-body">
             <div class="thread">
               <?php foreach ($responses as $r): ?>
-              <div class="thread-msg <?php echo $r['role']==='admin' ? 'admin-msg' : ''; ?>">
-                <div class="thread-avatar <?php echo $r['role']; ?>"><?php echo $r['initials']; ?></div>
+              <div class="thread-msg <?php echo $r['sender_role']==='admin' ? 'admin-msg' : ''; ?>">
+                <div class="thread-avatar <?php echo $r['sender_role']; ?>">
+                  <?php echo strtoupper(substr($r['sender_name'], 0, 2)); ?>
+                </div>
                 <div class="thread-bubble">
-                  <div class="thread-name"><?php echo $r['sender']; ?></div>
+                  <div class="thread-name"><?php echo $r['sender_name']; ?></div>
                   <div class="thread-text"><?php echo htmlspecialchars($r['message']); ?></div>
-                  <div class="thread-time"><?php echo $r['time']; ?></div>
+                  <div class="thread-time"><?php echo $r['created_at']; ?></div>
                 </div>
               </div>
               <?php endforeach; ?>
@@ -279,7 +313,7 @@ $responses = [
         <!-- Admin reply box -->
         <div class="reply-box">
           <p class="reply-box-title">Reply to student</p>
-          <form action="../includes/tickets.php" method="POST" onsubmit="return validateReply()">
+          <form action="" method="POST">
             <input type="hidden" name="action"    value="reply"/>
             <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>"/>
             <div class="reply-row">
@@ -304,7 +338,7 @@ $responses = [
         <!-- Assign technician -->
         <div class="form-card" style="margin-bottom:16px;">
           <p style="font-size:15px;font-weight:700;color:var(--white);margin-bottom:18px;">Assign Technician</p>
-          <form action="../includes/tickets.php" method="POST">
+          <form action="" method="POST">
             <input type="hidden" name="action"    value="assign"/>
             <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>"/>
             <div class="field">
@@ -331,7 +365,7 @@ $responses = [
         <!-- Update status -->
         <div class="form-card">
           <p style="font-size:15px;font-weight:700;color:var(--white);margin-bottom:18px;">Update Status</p>
-          <form action="../includes/tickets.php" method="POST">
+          <form action="" method="POST">
             <input type="hidden" name="action"    value="update_status"/>
             <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>"/>
             <div class="field">

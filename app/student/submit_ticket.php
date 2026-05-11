@@ -1,11 +1,37 @@
 <?php
-// ============================================================
-// student/submit_ticket.php — Phase 2 Frontend
-// Path: Project_CS381/app/student/submit_ticket.php
-// ============================================================
+session_start();
+require '../includes/db.php';
 
-$student_name     = "Hadeel Awad";
-$student_initials = "HA";
+// لو ما سجل دخول، ارجعه للـ login
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../login.php");
+    exit();
+}
+
+// لو admin، وجهه لصفحته
+if ($_SESSION['user_role'] === 'admin') {
+    header("Location: ../admin/dashboard.php");
+    exit();
+}
+
+$student_name     = $_SESSION['user_name'];
+$student_initials = strtoupper(substr($student_name, 0, 1) . substr(strrchr($student_name, " "), 1, 1));
+
+// لو الفورم اتحفظ
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $title       = trim($_POST['title']);
+    $description = trim($_POST['description']);
+    $category    = $_POST['category'];
+    $priority    = $_POST['priority'];
+    $location    = trim($_POST['location'] ?? '');
+
+    $stmt = $pdo->prepare("INSERT INTO tickets (user_id, title, description, category, priority, location) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$_SESSION['user_id'], $title, $description, $category, $priority, $location]);
+
+    // بعد الحفظ، ارجعه للـ dashboard
+    header("Location: dashboard.php");
+    exit();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -103,7 +129,7 @@ $student_initials = "HA";
       <div class="msg" id="form-msg"></div>
 
       <!-- action will connect to PHP handler in Phase 3 -->
-      <form action="../includes/tickets.php" method="POST" onsubmit="return validateTicket()">
+      <form action="" method="POST" onsubmit="return validateTicket()">
         <input type="hidden" name="action" value="submit"/>
 
         <!-- Category selector -->

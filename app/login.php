@@ -1,8 +1,22 @@
 <?php
-// ============================================================
-// login.php — Phase 2 Frontend
-// Path: Project_CS381/app/login.php
-// ============================================================
+session_start();
+
+// لو سجلت دخول مسبقاً، وجهها مباشرة
+if (isset($_SESSION['user_role'])) {
+    if ($_SESSION['user_role'] === 'admin') {
+        header("Location: admin/dashboard.php");
+    } else {
+        header("Location: student/dashboard.php");
+    }
+    exit();
+}
+
+// رسائل الخطأ
+$error = '';
+if (isset($_GET['error'])) {
+    if ($_GET['error'] === 'invalid') $error = 'Invalid email or password.';
+    if ($_GET['error'] === 'exists')  $error = 'This email is already registered.';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -202,6 +216,9 @@
         <button class="tab-btn active" onclick="switchTab('login')">Login</button>
         <button class="tab-btn"        onclick="switchTab('register')">Register</button>
       </div>
+      <?php if ($error): ?>
+  <div class="msg error"><?php echo $error; ?></div>
+        <?php endif; ?>
 
       <!-- LOGIN FORM -->
       <div class="form-panel active" id="panel-login">

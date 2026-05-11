@@ -1,21 +1,36 @@
 <?php
-// ============================================================
-// admin/dashboard.php — Phase 2 Frontend
-// Path: Project_CS381/app/admin/dashboard.php
-// ============================================================
+session_start();
+require '../includes/db.php';
 
-$admin_name     = "Admin Support";
-$admin_initials = "AS";
+// لو ما سجل دخول
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../login.php");
+    exit();
+}
 
-// Dummy tickets — replaced with DB query in Phase 3
-$tickets = [
-  ["id" => 1, "title" => "Cannot connect to campus WiFi",     "student" => "Hadeel Awad",   "category" => "Network",  "date" => "Apr 10, 2026", "priority" => "Medium", "status" => "open"],
-  ["id" => 2, "title" => "Projector not working in Lab 3",    "student" => "Sara Mohammed", "category" => "Hardware", "date" => "Apr 08, 2026", "priority" => "High",   "status" => "progress"],
-  ["id" => 3, "title" => "Need access to library system",     "student" => "Lina Ahmed",    "category" => "Account",  "date" => "Apr 05, 2026", "priority" => "Low",    "status" => "resolved"],
-  ["id" => 4, "title" => "Laptop charger broken in room 204", "student" => "Hadeel Awad",   "category" => "Hardware", "date" => "Apr 03, 2026", "priority" => "Medium", "status" => "resolved"],
-  ["id" => 5, "title" => "Email account not syncing",         "student" => "Noura Khalid",  "category" => "Software", "date" => "Apr 01, 2026", "priority" => "High",   "status" => "progress"],
-  ["id" => 6, "title" => "Printer offline in admin office",   "student" => "Reem Saleh",    "category" => "Printer",  "date" => "Mar 30, 2026", "priority" => "Low",    "status" => "open"],
-];
+// لو student دخل على صفحة الادمن
+if ($_SESSION['user_role'] !== 'admin') {
+    header("Location: ../student/dashboard.php");
+    exit();
+}
+
+$admin_name     = $_SESSION['user_name'];
+$admin_initials = strtoupper(substr($admin_name, 0, 1) . substr(strrchr($admin_name, " "), 1, 1));
+
+// جلب كل التذاكر مع اسم الطالب
+$stmt = $pdo->query("
+    SELECT tickets.*, users.name as student_name
+    FROM tickets
+    JOIN users ON tickets.user_id = users.id
+    ORDER BY tickets.created_at DESC
+");
+$tickets = $stmt->fetchAll();
+
+// حساب الإحصائيات
+$total    = count($tickets);
+$open     = count(array_filter($tickets, fn($t) => $t['status'] === 'open'));
+$progress = count(array_filter($tickets, fn($t) => $t['status'] === 'progress'));
+$resolved = count(array_filter($tickets, fn($t) => $t['status'] === 'resolved'));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -107,22 +122,22 @@ $tickets = [
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-label">Total tickets</div>
-        <div class="stat-number">6</div>
+        <div class="stat-number"><?php echo $total; ?></div>
         <div class="stat-sub">All time</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Open</div>
-        <div class="stat-number" style="color:var(--status-open);">2</div>
+        <div class="stat-number" style="color:var(--status-open);"><?php echo $open; ?></div>
         <div class="stat-sub">Need attention</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">In progress</div>
-        <div class="stat-number" style="color:var(--status-progress);">2</div>
+        <div class="stat-number" style="color:var(--status-progress);"><?php echo $progress; ?></div>
         <div class="stat-sub">Being handled</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Resolved</div>
-        <div class="stat-number" style="color:var(--status-resolved);">2</div>
+        <div class="stat-number" style="color:var(--status-resolved);"><?php echo $resolved; ?></div>
         <div class="stat-sub">Closed tickets</div>
       </div>
     </div>
@@ -150,14 +165,14 @@ $tickets = [
           <tr>
             <td style="color:var(--muted);">#<?php echo $t['id']; ?></td>
             <td><?php echo htmlspecialchars($t['title']); ?></td>
-            <td style="color:var(--muted);"><?php echo $t['student']; ?></td>
+            <td style="color:var(--muted);"><?php echo $t['student_name']; ?></td>
             <td style="color:var(--muted);"><?php echo $t['category']; ?></td>
             <td>
               <span style="font-size:12px;font-weight:600;color:<?php echo $t['priority']==='High' ? 'var(--status-open)' : ($t['priority']==='Medium' ? 'var(--status-progress)' : 'var(--muted)'); ?>">
                 <?php echo $t['priority']; ?>
               </span>
             </td>
-            <td style="color:var(--muted);"><?php echo $t['date']; ?></td>
+            <td style="color:var(--muted);"><?php echo $t['created_at']; ?></td>
             <td>
               <?php if ($t['status']==='open'): ?>
                 <span class="badge-status badge-open">Open</span>

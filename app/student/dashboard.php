@@ -1,20 +1,32 @@
 <?php
-// ============================================================
-// student/dashboard.php — Phase 2 Frontend
-// Path: Project_CS381/app/student/dashboard.php
-// ============================================================
+session_start();
+require '../includes/db.php';
 
-// Dummy data — will be replaced with real DB data in Phase 3
-$student_name     = "Hadeel Awad";
-$student_initials = "HA";
+// لو ما سجل دخول، ارجعه للـ login
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../login.php");
+    exit();
+}
 
-$tickets = [
-  ["id" => 1, "title" => "Cannot connect to campus WiFi",     "date" => "Apr 10, 2026", "status" => "open"],
-  ["id" => 2, "title" => "Projector not working in Lab 3",    "date" => "Apr 08, 2026", "status" => "progress"],
-  ["id" => 3, "title" => "Need access to library system",     "date" => "Apr 05, 2026", "status" => "resolved"],
-  ["id" => 4, "title" => "Laptop charger broken in room 204", "date" => "Apr 03, 2026", "status" => "resolved"],
-  ["id" => 5, "title" => "Email account not syncing",         "date" => "Apr 01, 2026", "status" => "progress"],
-];
+// لو admin دخل على صفحة الطالب، وجهه لصفحته
+if ($_SESSION['user_role'] === 'admin') {
+    header("Location: ../admin/dashboard.php");
+    exit();
+}
+
+// بيانات المستخدم من الـ session
+$student_name     = $_SESSION['user_name'];
+$student_initials = strtoupper(substr($student_name, 0, 1) . substr(strrchr($student_name, " "), 1, 1));
+
+// جلب تذاكر هذا الطالب فقط من قاعدة البيانات
+$stmt = $pdo->prepare("SELECT * FROM tickets WHERE user_id = ? ORDER BY created_at DESC");
+$stmt->execute([$_SESSION['user_id']]);
+$tickets = $stmt->fetchAll();
+// Count tickets by status
+$total    = count($tickets);
+$open     = count(array_filter($tickets, fn($t) => $t['status'] === 'open'));
+$progress = count(array_filter($tickets, fn($t) => $t['status'] === 'progress'));
+$resolved = count(array_filter($tickets, fn($t) => $t['status'] === 'resolved'));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -113,22 +125,22 @@ $tickets = [
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-label">Total tickets</div>
-        <div class="stat-number">5</div>
+        <div class="stat-number"><?php echo $total; ?></div>
         <div class="stat-sub">All time</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Open</div>
-        <div class="stat-number" style="color: var(--status-open);">1</div>
+        <div class="stat-number" style="color: var(--status-open);"><?php echo $open; ?></div>
         <div class="stat-sub">Waiting for response</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">In progress</div>
-        <div class="stat-number" style="color: var(--status-progress);">2</div>
+       <div class="stat-number" style="color: var(--status-progress);"><?php echo $progress; ?></div>
         <div class="stat-sub">Being handled</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Resolved</div>
-        <div class="stat-number" style="color: var(--status-resolved);">2</div>
+        <div class="stat-number" style="color: var(--status-resolved);"><?php echo $resolved; ?></div>
         <div class="stat-sub">Issues closed</div>
       </div>
     </div>
@@ -153,7 +165,7 @@ $tickets = [
           <tr>
             <td style="color: var(--muted);">#<?php echo $ticket['id']; ?></td>
             <td><?php echo htmlspecialchars($ticket['title']); ?></td>
-            <td style="color: var(--muted);"><?php echo $ticket['date']; ?></td>
+            <td style="color: var(--muted);"><?php echo $ticket['created_at']; ?></td>
             <td>
               <?php if ($ticket['status'] === 'open'): ?>
                 <span class="badge-status badge-open">Open</span>
