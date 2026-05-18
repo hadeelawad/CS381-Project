@@ -1,6 +1,8 @@
 <?php
 session_start();
 require '../includes/db.php';
+require '../includes/functions.php';
+
 
 // لو ما سجل دخول
 if (!isset($_SESSION['user_id'])) {
@@ -50,6 +52,7 @@ $responses = $stmt->fetchAll();
 
 // تعيين تقني
 if (isset($_POST['action']) && $_POST['action'] === 'assign') {
+    verifyCSRF();
     $tech_id = $_POST['technician_id'];
     $stmt = $pdo->prepare("INSERT INTO assignments (ticket_id, technician_id) VALUES (?, ?)");
     $stmt->execute([$ticket_id, $tech_id]);
@@ -59,6 +62,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'assign') {
 
 // تحديث الحالة
 if (isset($_POST['action']) && $_POST['action'] === 'update_status') {
+    verifyCSRF();
     $status = $_POST['status'];
     $stmt = $pdo->prepare("UPDATE tickets SET status = ? WHERE id = ?");
     $stmt->execute([$status, $ticket_id]);
@@ -68,6 +72,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_status') {
 
 // رد الادمن
 if (isset($_POST['action']) && $_POST['action'] === 'reply') {
+    verifyCSRF();
     $message = trim($_POST['message']);
     if ($message) {
         $stmt = $pdo->prepare("INSERT INTO responses (ticket_id, user_id, message) VALUES (?, ?, ?)");
@@ -198,15 +203,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'reply') {
         </svg>
         All Tickets
       </a>
-      <a href="assign_ticket.php" class="nav-item active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
-        Assign Ticket
-      </a>
     </nav>
 
     <div class="sidebar-bottom">
@@ -315,6 +311,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'reply') {
           <p class="reply-box-title">Reply to student</p>
           <form action="" method="POST">
             <input type="hidden" name="action"    value="reply"/>
+            <input type="hidden" name="csrf_token" value="<?php echo generateCSRF(); ?>"/>
             <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>"/>
             <div class="reply-row">
               <textarea id="reply-text" name="message" placeholder="Type your response..." required></textarea>
@@ -339,6 +336,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'reply') {
         <div class="form-card" style="margin-bottom:16px;">
           <p style="font-size:15px;font-weight:700;color:var(--white);margin-bottom:18px;">Assign Technician</p>
           <form action="" method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCSRF(); ?>"/>
             <input type="hidden" name="action"    value="assign"/>
             <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>"/>
             <div class="field">
@@ -367,6 +365,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'reply') {
           <p style="font-size:15px;font-weight:700;color:var(--white);margin-bottom:18px;">Update Status</p>
           <form action="" method="POST">
             <input type="hidden" name="action"    value="update_status"/>
+            <input type="hidden" name="csrf_token" value="<?php echo generateCSRF(); ?>"/>
             <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>"/>
             <div class="field">
               <label>New status</label>

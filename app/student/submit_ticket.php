@@ -1,6 +1,7 @@
 <?php
 session_start();
 require '../includes/db.php';
+require '../includes/functions.php';
 
 // لو ما سجل دخول، ارجعه للـ login
 if (!isset($_SESSION['user_id'])) {
@@ -19,6 +20,7 @@ $student_initials = strtoupper(substr($student_name, 0, 1) . substr(strrchr($stu
 
 // لو الفورم اتحفظ
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCSRF();
     $title       = trim($_POST['title']);
     $description = trim($_POST['description']);
     $category    = $_POST['category'];
@@ -131,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <!-- action will connect to PHP handler in Phase 3 -->
       <form action="" method="POST" onsubmit="return validateTicket()">
         <input type="hidden" name="action" value="submit"/>
+        <input type="hidden" name="csrf_token" value="<?php echo generateCSRF(); ?>"/>
 
         <!-- Category selector -->
         <div class="field">

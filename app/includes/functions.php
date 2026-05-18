@@ -34,4 +34,20 @@ function requireStudent() {
         exit();
     }
 }
+
+// توليد CSRF token
+function generateCSRF() {
+    if (!isset($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+// التحقق من CSRF token
+function verifyCSRF() {
+    if (!isset($_POST['csrf_token']) || 
+        $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("Invalid request.");
+    }
+}
 ?>

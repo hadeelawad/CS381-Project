@@ -1,5 +1,6 @@
 <?php
 session_start();
+require 'includes/functions.php';
 
 // لو سجلت دخول مسبقاً، وجهها مباشرة
 if (isset($_SESSION['user_role'])) {
@@ -227,6 +228,7 @@ if (isset($_GET['error'])) {
         <div class="msg" id="login-msg"></div>
         <form action="includes/auth.php" method="POST" onsubmit="return validateLogin()">
           <input type="hidden" name="action" value="login"/>
+          <input type="hidden" name="csrf_token" value="<?php echo generateCSRF(); ?>"/>
           <div class="field">
             <label>Email address</label>
             <input type="email" id="login-email" name="email" placeholder="you@yic.edu.sa" required/>
@@ -249,6 +251,7 @@ if (isset($_GET['error'])) {
         <div class="msg" id="register-msg"></div>
         <form action="includes/auth.php" method="POST" onsubmit="return validateRegister()">
           <input type="hidden" name="action" value="register"/>
+          <input type="hidden" name="csrf_token" value="<?php echo generateCSRF(); ?>"/>
           <div class="field">
             <label>Full name</label>
             <input type="text" id="reg-name" name="name" placeholder="Your full name" required/>

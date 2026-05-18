@@ -1,6 +1,8 @@
 <?php
 session_start();
 require '../includes/db.php';
+require '../includes/functions.php';
+
 
 // لو ما سجل دخول
 if (!isset($_SESSION['user_id'])) {
@@ -42,6 +44,7 @@ $responses = $stmt->fetchAll();
 
 // لو في رد جديد
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+   verifyCSRF();
     $message = trim($_POST['message']);
     if ($message) {
         $stmt = $pdo->prepare("INSERT INTO responses (ticket_id, user_id, message) VALUES (?, ?, ?)");
@@ -308,8 +311,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if ($ticket['status'] !== 'resolved'): ?>
     <div class="reply-box">
       <p class="reply-box-title">Add a reply</p>
-      <form action="" method="POST"
+      <form action="" method="POST">
         <input type="hidden" name="action"    value="reply"/>
+        <input type="hidden" name="csrf_token" value="<?php echo generateCSRF(); ?>"/>
         <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>"/>
         <div class="reply-row">
           <textarea
