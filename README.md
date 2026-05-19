@@ -1,7 +1,8 @@
 # YIC IT Support Portal
 **CS381 — Web Application Development**  
 Yanbu Industrial College | 2025–2026
-
+## Demo Video
+[Watch the video on Google Drive](https://drive.google.com/drive/folders/1xgk1jBG3qliVvgD3mY_gwqZMAS5nK9RM?usp=sharing)
 ---
 
 ## Project Description
