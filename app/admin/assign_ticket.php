@@ -81,6 +81,15 @@ if (isset($_POST['action']) && $_POST['action'] === 'reply') {
         exit();
     }
 }
+// حذف التذكرة
+if (isset($_POST['action']) && $_POST['action'] === 'delete') {
+    verifyCSRF();
+    $pdo->prepare("DELETE FROM responses WHERE ticket_id = ?")->execute([$ticket_id]);
+    $pdo->prepare("DELETE FROM assignments WHERE ticket_id = ?")->execute([$ticket_id]);
+    $pdo->prepare("DELETE FROM tickets WHERE id = ?")->execute([$ticket_id]);
+    header("Location: dashboard.php");
+    exit();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -359,6 +368,20 @@ if (isset($_POST['action']) && $_POST['action'] === 'reply') {
             </button>
           </form>
         </div>
+
+        <!-- Delete ticket -->
+<div class="form-card" style="margin-top:16px;">
+  <p style="font-size:15px;font-weight:700;color:#fca5a5;margin-bottom:18px;">Delete Ticket</p>
+  <form action="" method="POST">
+    <input type="hidden" name="action" value="delete"/>
+    <input type="hidden" name="csrf_token" value="<?php echo generateCSRF(); ?>"/>
+    <button type="submit" class="btn btn-danger" 
+      style="width:100%;justify-content:center;padding:11px;"
+      onclick="return confirm('Are you sure you want to delete this ticket? This cannot be undone.')">
+      Delete Ticket
+    </button>
+  </form>
+</div>
 
         <!-- Update status -->
         <div class="form-card">
